@@ -1,44 +1,52 @@
-version: "3"
+version: '3'
+
 services:
   nginx:
-    image: nginx:1.19.6
-    volumes:
-      - "./nginx/nginx.conf:/etc/nginx/nginx.conf"
-      - "./nginx/conf.d:/etc/nginx/conf.d"
-      - "./nginx/log:/var/log/nginx"
-      - "./wordpress:/var/www/html"
+    image: nginx:stable
+    container_name: wordpress-nginx
     ports:
-      - "${NGINX_HOST_PORT}:80"
-    depends_on:
-      - wordpress
+       - '${NGINX_HOST_PORT}:80'
+    volumes:
+       - ./nginx:/etc/nginx/conf.d
+       - ./logs/nginx:/var/log/nginx
+       - ./wordpress:/var/www/html
     restart: always
-    container_name: nginx
+    environment:
+       TZ: Asia/Tokyo
+    depends_on:
+       - wordpress
+
+  mariadb:
+    image: mariadb:latest
+    container_name: wordpress-mariadb
+    ports:
+       - '3306'
+    volumes:
+       - ./db-data:/var/lib/mysql
+    restart: always
+    environment:
+       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+       MYSQL_USER: ${MYSQL_USER}
+       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+       MYSQL_DATABASE: ${MYSQL_DATABASE}
+       TZ: Asia/Tokyo
+
   wordpress:
-    image: wordpress:5.6-php7.4-fpm
-    depends_on:
-      - db
-    volumes:
-      - "./wordpress:/var/www/html"
-    restart: always
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: ${MYSQL_USER}
-      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
-      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+    image: wordpress:fpm
     container_name: wordpress
-  db:
-    image: mariadb:10.5.8
-    restart: always
+    expose:
+       - '9000'
     volumes:
-      - "./db-data:/var/lib/mysql"
+       - ./wordpress:/var/www/html
+       - ./wordpress/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      TZ: Asia/Tokyo
-    ports:
-      - 3306:3306
-    container_name: db
-volumes:
-    db:
+       WORDPRESS_DB_HOST: wordpress-mariadb
+       WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+       WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+       WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+       TZ: Asia/Tokyo
+    depends_on:
+       - mariadb
+    links:
+       - mariadb
